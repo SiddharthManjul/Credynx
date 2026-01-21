@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useAuth, useMyProfile, useMyReputationScore } from '@/lib/hooks';
+import { useAuth, useMyProfile, useMyReputationScore, useDeveloperVouches } from '@/lib/hooks';
 import { CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FuturisticCard } from '@/components/ui/futuristic-card';
 import { FuturisticButton as Button } from '@/components/ui/futuristic-button';
@@ -124,6 +124,7 @@ function DeveloperUnifiedDashboard({ developer, reputationScore, reputationLoadi
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>();
   const updateProfile = useUpdateProfile();
+  const { data: vouches } = useDeveloperVouches(developer.id);
 
   const {
     register,
@@ -331,8 +332,7 @@ function DeveloperUnifiedDashboard({ developer, reputationScore, reputationLoadi
               <Users className="h-4 w-4" />
               Vouches
             </div>
-            <p className="text-4xl font-bold text-white">0</p>
-            <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
+            <p className="text-4xl font-bold text-white">{vouches?.length || 0}</p>
           </div>
         </FuturisticCard>
 
