@@ -22,6 +22,7 @@ import { useState } from 'react';
 const navigationItems = [
   { name: 'Developers', href: '/developers' },
   { name: 'Projects', href: '/projects' },
+  { name: 'Opportunities', href: '/opportunities' },
 ];
 
 interface NavbarProps {
@@ -31,7 +32,7 @@ interface NavbarProps {
 export function Navbar({ onAuthModalOpen }: NavbarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -105,6 +106,15 @@ export function Navbar({ onAuthModalOpen }: NavbarProps = {}) {
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => router.push('/admin/opportunities')}>
+                        <Menu className="mr-2 h-4 w-4" />
+                        Admin Panel
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                     <LogOut className="mr-2 h-4 w-4" />
