@@ -1,7 +1,7 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FuturisticCard } from '@/components/ui/futuristic-card';
 import { TierBadge } from './TierBadge';
 import { DeveloperTier } from '@/types';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Target, Sparkles, ArrowRight } from 'lucide-react';
 
 interface ReputationScoreProps {
   score: number;
@@ -35,17 +35,60 @@ export function ReputationScore({
   };
 
   const getProgressColor = () => {
-    if (score >= 76) return 'bg-purple-500';
-    if (score >= 51) return 'bg-blue-500';
-    if (score >= 26) return 'bg-green-500';
-    return 'bg-gray-500';
+    if (score >= 76) return 'bg-gradient-to-r from-purple-500 to-pink-500';
+    if (score >= 51) return 'bg-gradient-to-r from-blue-500 to-cyan-500';
+    if (score >= 26) return 'bg-gradient-to-r from-green-500 to-emerald-500';
+    return 'bg-gradient-to-r from-gray-500 to-slate-500';
   };
+
+  const getNextTierInfo = () => {
+    if (score >= 76) {
+      return { nextTier: null, pointsNeeded: 0, nextTierName: 'Elite' };
+    } else if (score >= 51) {
+      return { nextTier: 76, pointsNeeded: 76 - score, nextTierName: 'Elite' };
+    } else if (score >= 26) {
+      return { nextTier: 51, pointsNeeded: 51 - score, nextTierName: 'Advanced' };
+    } else {
+      return { nextTier: 26, pointsNeeded: 26 - score, nextTierName: 'Intermediate' };
+    }
+  };
+
+  const getRecommendations = () => {
+    if (score >= 76) {
+      return [
+        'Maintain your Elite status by staying active',
+        'Mentor lower tier developers through vouching',
+        'Share knowledge in community sessions'
+      ];
+    } else if (score >= 51) {
+      return [
+        'Add more verified projects to boost your score',
+        'Participate in hackathons to gain recognition',
+        'Increase GitHub contributions and activity'
+      ];
+    } else if (score >= 26) {
+      return [
+        'Complete at least 3 verified projects',
+        'Maintain consistent GitHub activity',
+        'Get vouched by higher tier developers'
+      ];
+    } else {
+      return [
+        'Add your first projects with live demos',
+        'Connect and sync your GitHub profile',
+        'Complete your profile with bio and social links'
+      ];
+    }
+  };
+
+  const nextTierInfo = getNextTierInfo();
+  const recommendations = getRecommendations();
 
   if (compact) {
     return (
       <div className="flex items-center gap-3">
         <div className="flex flex-col">
-          <span className="text-2xl font-bold">{score.toFixed(1)}</span>
+          <span className="text-2xl font-bold text-white">{score.toFixed(1)}</span>
           <span className="text-xs text-muted-foreground">Reputation</span>
         </div>
         <TierBadge tier={tier} size="md" />
@@ -54,26 +97,25 @@ export function ReputationScore({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between">
+    <FuturisticCard className="border-primary/20" hoverEffect={false}>
+      <div className="p-6">
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <CardTitle>Reputation Score</CardTitle>
-            <CardDescription>Your overall platform ranking</CardDescription>
+            <h3 className="text-2xl font-bold text-white">Reputation Score</h3>
+            <p className="text-muted-foreground mt-1">Your overall platform ranking</p>
           </div>
           <TierBadge tier={tier} size="lg" />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+
         {/* Score Display */}
-        <div className="flex items-end gap-2">
-          <span className="text-5xl font-bold">{score.toFixed(1)}</span>
+        <div className="flex items-end gap-2 mb-6">
+          <span className="text-5xl font-bold text-orange-500">{score.toFixed(1)}</span>
           <span className="text-2xl text-muted-foreground pb-1">/ 100</span>
         </div>
 
         {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="h-3 bg-secondary rounded-full overflow-hidden">
+        <div className="space-y-2 mb-6">
+          <div className="h-3 bg-white/10 rounded-full overflow-hidden">
             <div
               className={`h-full ${getProgressColor()} transition-all duration-500`}
               style={{ width: `${score}%` }}
@@ -90,22 +132,54 @@ export function ReputationScore({
 
         {/* Trend */}
         {previousScore !== undefined && (
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm mb-6">
             {getTrendIcon()}
             <span className="text-muted-foreground">{getTrendText()}</span>
           </div>
         )}
 
-        {/* Tier Info */}
-        <div className="pt-4 border-t">
-          <p className="text-sm text-muted-foreground">
-            {score >= 76 && "You're in the Elite tier - top 1% of developers!"}
-            {score >= 51 && score < 76 && "You're in the Advanced tier - top 10% of developers!"}
-            {score >= 26 && score < 51 && "You're in the Intermediate tier - keep building!"}
-            {score < 26 && "Welcome! Complete projects to increase your reputation."}
-          </p>
+        {/* Next Tier Milestone */}
+        {nextTierInfo.nextTier && (
+          <div className="mb-6 p-4 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="h-4 w-4 text-orange-400" />
+              <h4 className="font-semibold text-white text-sm uppercase tracking-wider">Next Milestone</h4>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/80 text-sm">
+                  {nextTierInfo.pointsNeeded.toFixed(1)} points to <span className="font-bold text-orange-400">{nextTierInfo.nextTierName}</span> tier
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Target</p>
+                  <p className="text-lg font-bold text-white">{nextTierInfo.nextTier}</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-orange-400" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Recommendations */}
+        <div className="pt-4 border-t border-white/10">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="h-4 w-4 text-orange-400" />
+            <h4 className="font-semibold text-white text-sm uppercase tracking-wider">
+              {score >= 76 ? 'Maintain Your Status' : 'Improve Your Score'}
+            </h4>
+          </div>
+          <ul className="space-y-2">
+            {recommendations.map((rec, index) => (
+              <li key={index} className="flex items-start gap-2 text-sm text-white/80">
+                <div className="h-1.5 w-1.5 rounded-full bg-orange-400 mt-1.5 shrink-0" />
+                <span>{rec}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </FuturisticCard>
   );
 }
