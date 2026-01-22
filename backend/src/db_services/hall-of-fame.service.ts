@@ -151,6 +151,17 @@ export class HallOfFameService {
     });
   }
 
+  async updateGrant(params: {
+    where: Prisma.GrantWhereUniqueInput;
+    data: Prisma.GrantUpdateInput;
+  }): Promise<Grant> {
+    const { where, data } = params;
+    return this.prisma.grant.update({
+      data,
+      where,
+    });
+  }
+
   async submitGrantRecipient(
     data: Prisma.GrantRecipientCreateInput,
   ): Promise<GrantRecipient> {
