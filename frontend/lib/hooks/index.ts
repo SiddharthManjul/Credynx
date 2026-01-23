@@ -6,3 +6,4 @@ export * from './useDevelopers';
 export * from './useFounders';
 export * from './useProjects';
 export * from './useVouching';
+export * from './useOpportunities';
