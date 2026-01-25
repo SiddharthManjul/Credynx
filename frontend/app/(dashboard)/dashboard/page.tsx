@@ -64,7 +64,12 @@ export default function UnifiedDashboardPage() {
 
   const developer = profile?.developer;
   const founder = profile?.founder;
-  const hasProfile = isDeveloper ? !!developer : !!founder;
+  
+  // Check for actual profile data, not just user role
+  // This handles cases where ADMIN users may also have developer/founder profiles
+  const hasDeveloperProfile = !!developer;
+  const hasFounderProfile = !!founder;
+  const hasProfile = hasDeveloperProfile || hasFounderProfile;
 
   // If no profile, show onboarding
   if (!hasProfile) {
@@ -104,13 +109,13 @@ export default function UnifiedDashboardPage() {
     );
   }
 
-  // Developer Unified Dashboard
-  if (isDeveloper && developer) {
+  // Developer Unified Dashboard - show if user has a developer profile
+  if (hasDeveloperProfile && developer) {
     return <DeveloperUnifiedDashboard developer={developer} reputationScore={reputationScore} reputationLoading={reputationLoading} />;
   }
 
-  // Founder Unified Dashboard
-  if (isFounder && founder) {
+  // Founder Unified Dashboard - show if user has a founder profile
+  if (hasFounderProfile && founder) {
     return <FounderUnifiedDashboard founder={founder} />;
   }
 
