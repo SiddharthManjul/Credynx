@@ -18,7 +18,6 @@ import { CreateHackathonDto } from './dto/create-hackathon.dto.js';
 import { CreateGrantDto } from './dto/create-grant.dto.js';
 
 @Controller('opportunities')
-@Public() // All opportunities endpoints are public
 export class OpportunitiesController {
   constructor(private readonly opportunitiesService: OpportunitiesService) {}
 
@@ -26,6 +25,7 @@ export class OpportunitiesController {
    * Get all opportunities (hackathons and grants)
    * Public endpoint
    */
+  @Public()
   @Get()
   async getAllOpportunities(
     @Query('ecosystem') ecosystem?: string,
@@ -45,6 +45,7 @@ export class OpportunitiesController {
    * Get active hackathons
    * Public endpoint
    */
+  @Public()
   @Get('hackathons')
   async getActiveHackathons(
     @Query('ecosystem') ecosystem?: string,
@@ -62,6 +63,7 @@ export class OpportunitiesController {
    * Get a single hackathon by ID
    * Public endpoint
    */
+  @Public()
   @Get('hackathons/:id')
   async getHackathon(@Param('id') id: string) {
     const hackathon = await this.opportunitiesService.getHackathon(id);
@@ -75,6 +77,7 @@ export class OpportunitiesController {
    * Get open grants
    * Public endpoint
    */
+  @Public()
   @Get('grants')
   async getOpenGrants(
     @Query('ecosystem') ecosystem?: string,
@@ -92,6 +95,7 @@ export class OpportunitiesController {
    * Get a single grant by ID
    * Public endpoint
    */
+  @Public()
   @Get('grants/:id')
   async getGrant(@Param('id') id: string) {
     const grant = await this.opportunitiesService.getGrant(id);
@@ -105,6 +109,7 @@ export class OpportunitiesController {
    * Get unique ecosystems for filtering
    * Public endpoint
    */
+  @Public()
   @Get('ecosystems')
   async getEcosystems() {
     return this.opportunitiesService.getEcosystems();
