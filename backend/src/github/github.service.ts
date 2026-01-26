@@ -186,6 +186,8 @@ export class GithubService {
       const fromDateISO = fromDate.toISOString();
       const toDateISO = toDate.toISOString();
 
+      this.logger.log(`Fetching commits for ${username} from ${fromDateISO} to ${toDateISO}`);
+
       const query = `
         query {
           user(login: "${username}") {
@@ -193,14 +195,29 @@ export class GithubService {
               contributionCalendar {
                 totalContributions
               }
+              totalCommitContributions
+              totalIssueContributions
+              totalPullRequestContributions
+              totalPullRequestReviewContributions
             }
           }
         }
       `;
 
       const response: any = await this.octokit.graphql(query);
+      const contributions = response.user.contributionsCollection;
 
-      return response.user.contributionsCollection.contributionCalendar.totalContributions || 0;
+      // Log detailed breakdown for debugging
+      this.logger.log(`GitHub contributions for ${username}:`, {
+        totalContributions: contributions.contributionCalendar.totalContributions,
+        commits: contributions.totalCommitContributions,
+        issues: contributions.totalIssueContributions,
+        pullRequests: contributions.totalPullRequestContributions,
+        reviews: contributions.totalPullRequestReviewContributions,
+      });
+
+      // Return total contributions (includes all activity types)
+      return contributions.contributionCalendar.totalContributions || 0;
     } catch (error: any) {
       this.logger.warn(`Failed to fetch contributions for ${username}`, error);
       return 0;

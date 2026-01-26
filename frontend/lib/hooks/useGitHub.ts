@@ -15,6 +15,8 @@ export function useGitHubStats(username: string) {
     queryKey: ['github', 'stats', username],
     queryFn: () => githubApi.getStats(username),
     enabled: !!username,
+    staleTime: 0, // Always treat as stale
+    gcTime: 0, // Don't cache
   });
 }
 
