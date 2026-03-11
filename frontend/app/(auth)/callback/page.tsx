@@ -58,7 +58,7 @@ function CallbackContent() {
       <CardHeader>
         <CardTitle>Authentication</CardTitle>
         <CardDescription>
-          {status === 'loading' && 'Processing your GitHub authentication...'}
+          {status === 'loading' && 'Processing your authentication...'}
           {status === 'success' && 'Authentication successful!'}
           {status === 'error' && 'Authentication failed'}
         </CardDescription>
