@@ -33,11 +33,18 @@ export const authApi = {
     return data;
   },
 
-  // GitHub OAuth
+  // GitHub OAuth — redirects to backend which initiates the GitHub OAuth flow
   githubLogin: (): void => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     window.location.href = `${apiUrl}/auth/github`;
   },
+
+  // Google OAuth — redirects to backend which initiates the Google OAuth flow
+  googleLogin: (): void => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    window.location.href = `${apiUrl}/auth/google`;
+  },
 };
 
 export default authApi;
+
