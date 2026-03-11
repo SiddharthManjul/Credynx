@@ -66,14 +66,32 @@ export class AuthController {
   @Get('github/callback')
   @UseGuards(AuthGuard('github'))
   async githubCallback(@Req() req: any, @Res() res: Response) {
-    // GitHub OAuth callback
-    // The user data is attached by the GitHubStrategy
     const authResponse: AuthResponse = req.user;
 
-    // Redirect to frontend with tokens in URL params (or use cookies)
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-    const redirectUrl = `${frontendUrl}/auth/callback?accessToken=${authResponse.accessToken}&refreshToken=${authResponse.refreshToken}`;
+    const redirectUrl = `${frontendUrl}/callback?accessToken=${authResponse.accessToken}&refreshToken=${authResponse.refreshToken}`;
+
+    res.redirect(redirectUrl);
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleLogin() {
+    // Initiates Google OAuth flow
+    // The actual redirect is handled by Passport
+  }
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleCallback(@Req() req: any, @Res() res: Response) {
+    const authResponse: AuthResponse = req.user;
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const redirectUrl = `${frontendUrl}/callback?accessToken=${authResponse.accessToken}&refreshToken=${authResponse.refreshToken}`;
 
     res.redirect(redirectUrl);
   }
 }
+
