@@ -84,7 +84,7 @@ export class AuthService {
     // Verify password
     if (!user.passwordHash) {
       throw new UnauthorizedException(
-        'This account uses OAuth. Please login with GitHub',
+        'This account uses OAuth. Please login with GitHub or Google',
       );
     }
 
@@ -162,6 +162,45 @@ export class AuthService {
         email,
         role: UserRole.DEVELOPER, // Default role for GitHub signups
         isVerified: true, // GitHub emails are verified
+      });
+    }
+
+    // Update last login
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    // Generate tokens
+    const tokens = await this.generateTokens(user);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
+      },
+      ...tokens,
+    };
+  }
+
+  async handleGoogleLogin(profile: any): Promise<AuthResponse> {
+    const emails = profile.emails;
+    const email = emails?.[0]?.value;
+    if (!email) {
+      throw new BadRequestException('Google account must have an email address');
+    }
+
+    // Check if user exists
+    let user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      // Create new user from Google profile
+      user = await this.usersService.create({
+        email,
+        role: UserRole.DEVELOPER, // Default role for Google signups
+        isVerified: true, // Google emails are verified
       });
     }
 
