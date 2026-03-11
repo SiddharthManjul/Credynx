@@ -4,7 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
-import { JwtStrategy, GitHubStrategy } from './strategies/index.js';
+import { JwtStrategy, GitHubStrategy, GoogleStrategy } from './strategies/index.js';
 import { DbServicesModule } from '../db_services/db-services.module.js';
 
 @Module({
@@ -23,7 +23,7 @@ import { DbServicesModule } from '../db_services/db-services.module.js';
     DbServicesModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GitHubStrategy],
+  providers: [AuthService, JwtStrategy, GitHubStrategy, GoogleStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}
