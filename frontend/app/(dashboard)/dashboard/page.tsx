@@ -26,13 +26,19 @@ import {
   ExternalLink,
   MapPin,
   Edit,
-  Building2
+  Building2,
+  Camera,
+  X,
+  Mail,
+  Loader2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateDeveloperProfileSchema, updateFounderProfileSchema, type UpdateDeveloperProfileFormData, type UpdateFounderProfileFormData } from '@/lib/validations';
 import { useUpdateProfile } from '@/lib/hooks/useProfile';
+import { authApi } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/authStore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -123,6 +129,8 @@ export default function UnifiedDashboardPage() {
 }
 
 // Developer Unified Dashboard Component
+const MAX_AVATAR_BYTES = 1 * 1024 * 1024; // 1 MB
+
 function DeveloperUnifiedDashboard({ developer, reputationScore, reputationLoading }: any) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -130,6 +138,55 @@ function DeveloperUnifiedDashboard({ developer, reputationScore, reputationLoadi
   const [editingProject, setEditingProject] = useState<Project | undefined>();
   const updateProfile = useUpdateProfile();
   const { data: vouches } = useDeveloperVouches(developer.id);
+
+  // Avatar state
+  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(developer.avatarUrl);
+  const [avatarError, setAvatarError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Email state — email lives on User, not Developer; read from auth store
+  const storeUser = useAuthStore((s) => s.user);
+  const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser);
+  const [email, setEmail] = useState(storeUser?.email ?? '');
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAvatarError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatarError('Image must be 1 MB or smaller.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setAvatarPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarPreview(undefined);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleEmailSave = async () => {
+    const trimmed = email.trim();
+    if (!trimmed || trimmed === storeUser?.email) return;
+    setEmailSaving(true);
+    setEmailError('');
+    setEmailSuccess('');
+    try {
+      await authApi.updateEmail(trimmed);
+      await fetchCurrentUser();
+      setEmailSuccess('Email updated!');
+    } catch (err: any) {
+      setEmailError(err?.response?.data?.message || err?.message || 'Failed to update email.');
+    } finally {
+      setEmailSaving(false);
+    }
+  };
 
   const {
     register,
@@ -151,7 +208,7 @@ function DeveloperUnifiedDashboard({ developer, reputationScore, reputationLoadi
 
   const onSubmit = async (data: UpdateDeveloperProfileFormData) => {
     try {
-      await updateProfile.mutateAsync(data);
+      await updateProfile.mutateAsync({ ...data, avatarUrl: avatarPreview } as any);
       setIsEditing(false);
     } catch (error) {
       // Error handled by mutation
@@ -191,11 +248,7 @@ function DeveloperUnifiedDashboard({ developer, reputationScore, reputationLoadi
                 <CardTitle className="text-2xl">Edit Profile</CardTitle>
                 <CardDescription>Update your profile information</CardDescription>
               </div>
-              <Button
-                variant="outline"
-                className="backdrop-blur-sm bg-background/50"
-                onClick={() => setIsEditing(false)}
-              >
+              <Button variant="outline" className="backdrop-blur-sm bg-background/50" onClick={() => setIsEditing(false)}>
                 Cancel
               </Button>
             </div>
@@ -208,6 +261,60 @@ function DeveloperUnifiedDashboard({ developer, reputationScore, reputationLoadi
                 </Alert>
               )}
 
+              {/* ── Profile Photo ── */}
+              <div className="space-y-3">
+                <Label>Profile Photo <span className="text-xs text-muted-foreground">(max 1 MB)</span></Label>
+                <div className="flex items-center gap-5">
+                  <div className="relative shrink-0">
+                    <div className="h-24 w-24 rounded-full overflow-hidden bg-white/10 border-2 border-primary/40 flex items-center justify-center">
+                      {avatarPreview
+                        ? <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
+                        : <Camera className="h-8 w-8 text-muted-foreground" />}
+                    </div>
+                    {avatarPreview && (
+                      <button type="button" onClick={handleRemoveAvatar}
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive flex items-center justify-center shadow">
+                        <X className="h-3 w-3 text-white" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+                      onChange={handleImageChange} className="hidden" />
+                    <Button type="button" variant="outline" size="sm"
+                      className="backdrop-blur-sm bg-background/50" onClick={() => fileInputRef.current?.click()}>
+                      <Camera className="mr-2 h-4 w-4" />
+                      {avatarPreview ? 'Change Photo' : 'Upload Photo'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">JPG, PNG, WebP · max 1 MB</p>
+                    {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="bg-white/10" />
+
+              {/* ── Email ── */}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input id="email" type="email" className="pl-10 bg-white/5 border-white/10"
+                      value={email} onChange={(e) => { setEmail(e.target.value); setEmailSuccess(''); setEmailError(''); }} />
+                  </div>
+                  <Button type="button" variant="outline" size="sm"
+                    className="backdrop-blur-sm bg-background/50"
+                    onClick={handleEmailSave}
+                    disabled={emailSaving || !email.trim() || email.trim() === storeUser?.email}>
+                    {emailSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update'}
+                  </Button>
+                </div>
+                {emailError && <p className="text-sm text-destructive">{emailError}</p>}
+                {emailSuccess && <p className="text-sm text-green-500">{emailSuccess}</p>}
+              </div>
+
+              <Separator className="bg-white/10" />
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
