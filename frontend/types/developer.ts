@@ -11,6 +11,7 @@ export interface Developer {
   linkedin?: string;
   github: string;
   bio?: string;
+  avatarUrl?: string;
   location?: string;
   availability: Availability;
   tier: DeveloperTier;
@@ -54,6 +55,7 @@ export interface UpdateDeveloperProfileDto {
   bio?: string;
   location?: string;
   availability?: Availability;
+  avatarUrl?: string;
 }
 
 export interface CreateFounderProfileDto {
