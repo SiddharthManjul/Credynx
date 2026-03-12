@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Edit, Loader2, Github, ExternalLink, MapPin, Twitter, Linkedin, Plus, Camera, X, Mail } from 'lucide-react';
 import { updateDeveloperProfileSchema, type UpdateDeveloperProfileFormData } from '@/lib/validations';
-import { useUpdateProfile, useMyReputationScore, useCalculateMyReputation } from '@/lib/hooks';
+import { useUpdateProfile, useMyReputationScore } from '@/lib/hooks';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store/authStore';
 import type { Developer, Project } from '@/types';
@@ -42,15 +42,18 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
   const [editingProject, setEditingProject] = useState<Project | undefined>();
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(developer.avatarUrl);
   const [avatarError, setAvatarError] = useState('');
-  const [email, setEmail] = useState(developer.user?.email ?? '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Email update state — seed from auth store (the email lives on User, not Developer)
+  const storeUser = useAuthStore((s) => s.user);
+  const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser);
+  const [email, setEmail] = useState(storeUser?.email ?? '');
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSuccess, setEmailSuccess] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const updateProfile = useUpdateProfile();
   const { data: reputationScore, isLoading: reputationLoading } = useMyReputationScore();
-  const updateUser = useAuthStore((s) => s.setAuth);
-  const currentUser = useAuthStore((s) => s.user);
 
   const {
     register,
@@ -76,15 +79,14 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
     if (!file) return;
 
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      setAvatarError('Image must be 1 MB or smaller');
+      setAvatarError('Image must be 1 MB or smaller.');
       e.target.value = '';
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setAvatarPreview(dataUrl);
+      setAvatarPreview(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
   };
@@ -107,19 +109,20 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
   };
 
   const handleEmailSave = async () => {
-    if (!email.trim() || email === (developer.user?.email ?? '')) return;
+    const trimmed = email.trim();
+    if (!trimmed || trimmed === storeUser?.email) return;
     setEmailSaving(true);
     setEmailError('');
     setEmailSuccess('');
     try {
-      await authApi.updateEmail(email.trim());
-      setEmailSuccess('Email updated successfully');
-      // Update local auth store so the navbar reflects new email
-      if (currentUser) {
-        updateUser({ user: { ...currentUser, email: email.trim() }, accessToken: '', refreshToken: '' });
-      }
+      await authApi.updateEmail(trimmed);
+      // Refresh the auth store user so Navbar email updates too
+      await fetchCurrentUser();
+      setEmailSuccess('Email updated successfully!');
     } catch (err: any) {
-      setEmailError(err?.message || err?.response?.data?.message || 'Failed to update email');
+      setEmailError(
+        err?.response?.data?.message || err?.message || 'Failed to update email.',
+      );
     } finally {
       setEmailSaving(false);
     }
@@ -147,6 +150,7 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
     NOT_LOOKING: 'Not Looking',
   };
 
+  /* ─── Edit Form ─── */
   if (isEditing) {
     return (
       <Card>
@@ -169,72 +173,83 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
               </Alert>
             )}
 
-            {/* Profile Photo */}
-            <div className="flex items-start gap-6">
-              <div className="relative shrink-0">
-                <div className="h-24 w-24 rounded-full overflow-hidden bg-white/10 border-2 border-primary/30 flex items-center justify-center">
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
-                  ) : (
-                    <Camera className="h-8 w-8 text-muted-foreground" />
+            {/* ── Profile Photo ── */}
+            <div className="space-y-3">
+              <Label>Profile Photo <span className="text-xs text-muted-foreground">(max 1 MB)</span></Label>
+              <div className="flex items-center gap-5">
+                {/* Preview circle */}
+                <div className="relative shrink-0">
+                  <div className="h-24 w-24 rounded-full overflow-hidden bg-white/10 border-2 border-primary/40 flex items-center justify-center">
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <Camera className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  {avatarPreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive flex items-center justify-center shadow"
+                    >
+                      <X className="h-3 w-3 text-white" />
+                    </button>
                   )}
                 </div>
-                {avatarPreview && (
-                  <button
+
+                {/* Upload button + hidden input */}
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    id="avatar-upload"
+                  />
+                  <Button
                     type="button"
-                    onClick={handleRemoveAvatar}
-                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive flex items-center justify-center"
+                    variant="outline"
+                    size="sm"
+                    borderColor="rgba(249,115,22,0.6)"
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    <X className="h-3 w-3 text-white" />
-                  </button>
-                )}
-              </div>
-              <div className="space-y-2 flex-1">
-                <Label>Profile Photo</Label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                  id="avatar-upload"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  borderColor="rgba(255,0,0,0.6)"
-                >
-                  <Camera className="mr-2 h-4 w-4" />
-                  {avatarPreview ? 'Change Photo' : 'Upload Photo'}
-                </Button>
-                <p className="text-xs text-muted-foreground">Max size: 1 MB. JPG, PNG, or WebP.</p>
-                {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
+                    <Camera className="mr-2 h-4 w-4" />
+                    {avatarPreview ? 'Change Photo' : 'Upload Photo'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP or GIF · max 1 MB</p>
+                  {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
+                </div>
               </div>
             </div>
 
-            {/* Email */}
+            <Separator />
+
+            {/* ── Email ── */}
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     id="email"
                     type="email"
                     className="pl-10"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setEmailSuccess(''); setEmailError(''); }}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setEmailSuccess('');
+                      setEmailError('');
+                    }}
                   />
                 </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  borderColor="rgba(249,115,22,0.6)"
                   onClick={handleEmailSave}
-                  disabled={emailSaving || !email.trim()}
-                  borderColor="rgba(255,0,0,0.6)"
+                  disabled={emailSaving || !email.trim() || email.trim() === storeUser?.email}
                 >
                   {emailSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update'}
                 </Button>
@@ -245,36 +260,22 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
 
             <Separator />
 
+            {/* ── Name & Contact ── */}
             <div className="grid gap-6 md:grid-cols-2">
-              {/* Full Name */}
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  {...register('fullName')}
-                  disabled={updateProfile.isPending}
-                />
-                {errors.fullName && (
-                  <p className="text-sm text-destructive">{errors.fullName.message}</p>
-                )}
+                <Input id="fullName" {...register('fullName')} disabled={updateProfile.isPending} />
+                {errors.fullName && <p className="text-sm text-destructive">{errors.fullName.message}</p>}
               </div>
-
-              {/* Contact Number */}
               <div className="space-y-2">
                 <Label htmlFor="contactNumber">Contact Number</Label>
-                <Input
-                  id="contactNumber"
-                  {...register('contactNumber')}
-                  disabled={updateProfile.isPending}
-                />
-                {errors.contactNumber && (
-                  <p className="text-sm text-destructive">{errors.contactNumber.message}</p>
-                )}
+                <Input id="contactNumber" {...register('contactNumber')} disabled={updateProfile.isPending} />
+                {errors.contactNumber && <p className="text-sm text-destructive">{errors.contactNumber.message}</p>}
               </div>
             </div>
 
+            {/* ── Availability & Location ── */}
             <div className="grid gap-6 md:grid-cols-2">
-              {/* Availability */}
               <div className="space-y-2">
                 <Label htmlFor="availability">Availability</Label>
                 <Select
@@ -282,9 +283,7 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
                   defaultValue={developer.availability}
                   disabled={updateProfile.isPending}
                 >
-                  <SelectTrigger id="availability">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger id="availability"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={Availability.AVAILABLE}>Available</SelectItem>
                     <SelectItem value={Availability.BUSY}>Busy</SelectItem>
@@ -292,73 +291,38 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Location */}
               <div className="space-y-2">
                 <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  placeholder="San Francisco, CA"
-                  {...register('location')}
-                  disabled={updateProfile.isPending}
-                />
+                <Input id="location" placeholder="San Francisco, CA" {...register('location')} disabled={updateProfile.isPending} />
               </div>
             </div>
 
+            {/* ── Social Links ── */}
             <div className="grid gap-6 md:grid-cols-2">
-              {/* Twitter */}
               <div className="space-y-2">
                 <Label htmlFor="twitter">Twitter URL</Label>
-                <Input
-                  id="twitter"
-                  placeholder="https://twitter.com/username"
-                  {...register('twitter')}
-                  disabled={updateProfile.isPending}
-                />
-                {errors.twitter && (
-                  <p className="text-sm text-destructive">{errors.twitter.message}</p>
-                )}
+                <Input id="twitter" placeholder="https://twitter.com/username" {...register('twitter')} disabled={updateProfile.isPending} />
+                {errors.twitter && <p className="text-sm text-destructive">{errors.twitter.message}</p>}
               </div>
-
-              {/* LinkedIn */}
               <div className="space-y-2">
                 <Label htmlFor="linkedin">LinkedIn URL</Label>
-                <Input
-                  id="linkedin"
-                  placeholder="https://linkedin.com/in/username"
-                  {...register('linkedin')}
-                  disabled={updateProfile.isPending}
-                />
-                {errors.linkedin && (
-                  <p className="text-sm text-destructive">{errors.linkedin.message}</p>
-                )}
+                <Input id="linkedin" placeholder="https://linkedin.com/in/username" {...register('linkedin')} disabled={updateProfile.isPending} />
+                {errors.linkedin && <p className="text-sm text-destructive">{errors.linkedin.message}</p>}
               </div>
             </div>
 
-            {/* Bio */}
+            {/* ── Bio ── */}
             <div className="space-y-2">
               <Label htmlFor="bio">Bio</Label>
-              <Textarea
-                id="bio"
-                rows={4}
-                {...register('bio')}
-                disabled={updateProfile.isPending}
-              />
-              {errors.bio && (
-                <p className="text-sm text-destructive">{errors.bio.message}</p>
-              )}
+              <Textarea id="bio" rows={4} {...register('bio')} disabled={updateProfile.isPending} />
+              {errors.bio && <p className="text-sm text-destructive">{errors.bio.message}</p>}
             </div>
 
             <div className="flex gap-4">
               <Button type="submit" disabled={updateProfile.isPending}>
                 {updateProfile.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+                ) : 'Save Changes'}
               </Button>
             </div>
           </form>
@@ -367,9 +331,9 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
     );
   }
 
+  /* ─── View Mode ─── */
   return (
     <div className="space-y-6">
-      {/* Profile Header */}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between">
@@ -401,16 +365,10 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Bio */}
-          {developer.bio && (
-            <div>
-              <p className="text-muted-foreground">{developer.bio}</p>
-            </div>
-          )}
+          {developer.bio && <p className="text-muted-foreground">{developer.bio}</p>}
 
           <Separator />
 
-          {/* Contact & Social */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
               <h3 className="font-semibold">Contact</h3>
@@ -418,48 +376,25 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
                 <p className="text-muted-foreground">{developer.contactNumber}</p>
                 {developer.location && (
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    {developer.location}
+                    <MapPin className="h-4 w-4" />{developer.location}
                   </div>
                 )}
               </div>
             </div>
-
             <div className="space-y-3">
               <h3 className="font-semibold">Social Links</h3>
               <div className="space-y-2">
-                <a
-                  href={developer.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-primary hover:underline"
-                >
-                  <Github className="h-4 w-4" />
-                  GitHub
-                  <ExternalLink className="h-3 w-3" />
+                <a href={developer.github} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                  <Github className="h-4 w-4" />GitHub<ExternalLink className="h-3 w-3" />
                 </a>
                 {developer.twitter && (
-                  <a
-                    href={developer.twitter}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                  >
-                    <Twitter className="h-4 w-4" />
-                    Twitter
-                    <ExternalLink className="h-3 w-3" />
+                  <a href={developer.twitter} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                    <Twitter className="h-4 w-4" />Twitter<ExternalLink className="h-3 w-3" />
                   </a>
                 )}
                 {developer.linkedin && (
-                  <a
-                    href={developer.linkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                  >
-                    <Linkedin className="h-4 w-4" />
-                    LinkedIn
-                    <ExternalLink className="h-3 w-3" />
+                  <a href={developer.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                    <Linkedin className="h-4 w-4" />LinkedIn<ExternalLink className="h-3 w-3" />
                   </a>
                 )}
               </div>
@@ -468,7 +403,6 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
 
           <Separator />
 
-          {/* Reputation & Tier */}
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <p className="text-sm text-muted-foreground">Reputation Score</p>
@@ -482,66 +416,45 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
         </CardContent>
       </Card>
 
-      {/* Reputation Details */}
       {!reputationLoading && reputationScore && (
         <div className="grid gap-6 md:grid-cols-2">
-          <ReputationScore
-            score={reputationScore.totalScore}
-            tier={reputationScore.tier}
-          />
+          <ReputationScore score={reputationScore.totalScore} tier={reputationScore.tier} />
           <ReputationBreakdown breakdown={reputationScore} />
         </div>
       )}
 
-      {/* GitHub Statistics */}
       {developer.github && (
-        <GitHubStatsCard
-          username={developer.github.split('/').pop() || ''}
-        />
+        <GitHubStatsCard username={developer.github.split('/').pop() || ''} />
       )}
 
-      {/* Projects Section */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Projects</CardTitle>
-              <CardDescription>
-                Showcase your work and contributions
-              </CardDescription>
+              <CardDescription>Showcase your work and contributions</CardDescription>
             </div>
             <Button onClick={() => setProjectDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Project
+              <Plus className="mr-2 h-4 w-4" />Add Project
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {developer.projects?.length === 0 || !developer.projects ? (
+          {!developer.projects?.length ? (
             <p className="text-muted-foreground text-center py-8">
               No projects yet. Start adding your work to increase your reputation!
             </p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {developer.projects.map((project, index) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  index={index}
-                  onEdit={handleEditProject}
-                />
+                <ProjectCard key={project.id} project={project} index={index} onEdit={handleEditProject} />
               ))}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Project Form Dialog */}
-      <ProjectFormDialog
-        open={projectDialogOpen}
-        onOpenChange={handleCloseDialog}
-        project={editingProject}
-      />
+      <ProjectFormDialog open={projectDialogOpen} onOpenChange={handleCloseDialog} project={editingProject} />
     </div>
   );
 }
