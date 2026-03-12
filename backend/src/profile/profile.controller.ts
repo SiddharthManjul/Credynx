@@ -52,9 +52,24 @@ export class ProfileController {
         updateDto as UpdateFounderProfileDto,
       );
     }
+
+    // For ADMIN or other roles, detect profile type by checking what exists
+    const profile = await this.profileService.getFullProfile(user.id);
+    if ((profile as any).developer) {
+      return this.profileService.updateDeveloperProfile(
+        user.id,
+        updateDto as UpdateDeveloperProfileDto,
+      );
+    } else if ((profile as any).founder) {
+      return this.profileService.updateFounderProfile(
+        user.id,
+        updateDto as UpdateFounderProfileDto,
+      );
+    }
+
     throw new HttpException(
-      'Invalid user role',
-      HttpStatus.BAD_REQUEST,
+      'No profile found to update',
+      HttpStatus.NOT_FOUND,
     );
   }
 
