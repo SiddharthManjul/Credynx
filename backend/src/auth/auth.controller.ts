@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   UseGuards,
   Req,
@@ -52,6 +53,14 @@ export class AuthController {
       isVerified: user.isVerified,
       createdAt: user.createdAt,
     };
+  }
+
+  @Patch('email')
+  async updateEmail(
+    @CurrentUser() user: User,
+    @Body('email') email: string,
+  ) {
+    return this.authService.updateEmail(user.id, email);
   }
 
   @Public()
