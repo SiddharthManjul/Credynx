@@ -99,24 +99,24 @@ export function Navbar({ onAuthModalOpen }: NavbarProps = {}) {
                     <span className="text-sm">{user?.email}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/dashboard')}>
-                    <User className="mr-2 h-4 w-4" />
+                <DropdownMenuContent align="end" className="w-56 bg-black/90 backdrop-blur-md border border-primary/30 text-white shadow-xl shadow-black/50">
+                  <DropdownMenuLabel className="text-white/60 text-xs uppercase tracking-wider">{user?.email}</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-primary/20" />
+                  <DropdownMenuItem onClick={() => router.push('/dashboard')} className="text-white hover:bg-primary/10 focus:bg-primary/10 focus:text-white cursor-pointer">
+                    <User className="mr-2 h-4 w-4 text-primary" />
                     My Profile
                   </DropdownMenuItem>
                   {isAdmin && (
                     <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => router.push('/admin/opportunities')}>
-                        <Menu className="mr-2 h-4 w-4" />
+                      <DropdownMenuSeparator className="bg-primary/20" />
+                      <DropdownMenuItem onClick={() => router.push('/admin/opportunities')} className="text-white hover:bg-primary/10 focus:bg-primary/10 focus:text-white cursor-pointer">
+                        <Menu className="mr-2 h-4 w-4 text-primary" />
                         Admin Panel
                       </DropdownMenuItem>
                     </>
                   )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                  <DropdownMenuSeparator className="bg-primary/20" />
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:bg-red-500/10 focus:bg-red-500/10 focus:text-red-400 cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
