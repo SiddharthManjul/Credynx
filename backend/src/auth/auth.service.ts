@@ -224,6 +224,21 @@ export class AuthService {
     };
   }
 
+  async updateEmail(userId: string, newEmail: string): Promise<{ email: string }> {
+    // Check if new email is already taken by another user
+    const existing = await this.usersService.findByEmail(newEmail);
+    if (existing && existing.id !== userId) {
+      throw new ConflictException('Email already in use');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { email: newEmail },
+    });
+
+    return { email: user.email };
+  }
+
   private async generateTokens(
     user: User,
   ): Promise<{ accessToken: string; refreshToken: string }> {
