@@ -44,6 +44,12 @@ export const authApi = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     window.location.href = `${apiUrl}/auth/google`;
   },
+
+  // Update authenticated user's email
+  updateEmail: async (email: string): Promise<{ email: string }> => {
+    const { data } = await apiClient.patch<{ email: string }>('/auth/email', { email });
+    return data;
+  },
 };
 
 export default authApi;
