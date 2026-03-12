@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Edit, Loader2, Github, ExternalLink, MapPin, Twitter, Linkedin, Plus } from 'lucide-react';
+import { Edit, Loader2, Github, ExternalLink, MapPin, Twitter, Linkedin, Plus, Camera, X, Mail } from 'lucide-react';
 import { updateDeveloperProfileSchema, type UpdateDeveloperProfileFormData } from '@/lib/validations';
 import { useUpdateProfile, useMyReputationScore, useCalculateMyReputation } from '@/lib/hooks';
+import { authApi } from '@/lib/api';
+import { useAuthStore } from '@/lib/store/authStore';
 import type { Developer, Project } from '@/types';
 import { Availability } from '@/types';
 import { ProjectCard } from './ProjectCard';
@@ -28,6 +30,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+const MAX_IMAGE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB
+
 interface DeveloperProfileViewProps {
   developer: Developer;
 }
@@ -36,9 +40,17 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>();
+  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(developer.avatarUrl);
+  const [avatarError, setAvatarError] = useState('');
+  const [email, setEmail] = useState(developer.user?.email ?? '');
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const updateProfile = useUpdateProfile();
   const { data: reputationScore, isLoading: reputationLoading } = useMyReputationScore();
-  const calculateReputation = useCalculateMyReputation();
+  const updateUser = useAuthStore((s) => s.setAuth);
+  const currentUser = useAuthStore((s) => s.user);
 
   const {
     register,
@@ -58,12 +70,58 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
     },
   });
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAvatarError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setAvatarError('Image must be 1 MB or smaller');
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setAvatarPreview(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarPreview(undefined);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const onSubmit = async (data: UpdateDeveloperProfileFormData) => {
     try {
-      await updateProfile.mutateAsync(data);
+      await updateProfile.mutateAsync({
+        ...data,
+        avatarUrl: avatarPreview,
+      } as any);
       setIsEditing(false);
-    } catch (error) {
+    } catch {
       // Error handled by mutation
+    }
+  };
+
+  const handleEmailSave = async () => {
+    if (!email.trim() || email === (developer.user?.email ?? '')) return;
+    setEmailSaving(true);
+    setEmailError('');
+    setEmailSuccess('');
+    try {
+      await authApi.updateEmail(email.trim());
+      setEmailSuccess('Email updated successfully');
+      // Update local auth store so the navbar reflects new email
+      if (currentUser) {
+        updateUser({ user: { ...currentUser, email: email.trim() }, accessToken: '', refreshToken: '' });
+      }
+    } catch (err: any) {
+      setEmailError(err?.message || err?.response?.data?.message || 'Failed to update email');
+    } finally {
+      setEmailSaving(false);
     }
   };
 
@@ -110,6 +168,82 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
                 <AlertDescription>{updateProfile.error.message}</AlertDescription>
               </Alert>
             )}
+
+            {/* Profile Photo */}
+            <div className="flex items-start gap-6">
+              <div className="relative shrink-0">
+                <div className="h-24 w-24 rounded-full overflow-hidden bg-white/10 border-2 border-primary/30 flex items-center justify-center">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <Camera className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                {avatarPreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive flex items-center justify-center"
+                  >
+                    <X className="h-3 w-3 text-white" />
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2 flex-1">
+                <Label>Profile Photo</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                  id="avatar-upload"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  borderColor="rgba(255,0,0,0.6)"
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  {avatarPreview ? 'Change Photo' : 'Upload Photo'}
+                </Button>
+                <p className="text-xs text-muted-foreground">Max size: 1 MB. JPG, PNG, or WebP.</p>
+                {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
+              </div>
+            </div>
+
+            {/* Email */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    className="pl-10"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setEmailSuccess(''); setEmailError(''); }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEmailSave}
+                  disabled={emailSaving || !email.trim()}
+                  borderColor="rgba(255,0,0,0.6)"
+                >
+                  {emailSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update'}
+                </Button>
+              </div>
+              {emailError && <p className="text-sm text-destructive">{emailError}</p>}
+              {emailSuccess && <p className="text-sm text-green-500">{emailSuccess}</p>}
+            </div>
+
+            <Separator />
 
             <div className="grid gap-6 md:grid-cols-2">
               {/* Full Name */}
@@ -239,14 +373,26 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                <CardTitle className="text-2xl">{developer.fullName}</CardTitle>
-                <Badge className={availabilityColors[developer.availability]}>
-                  {availabilityLabels[developer.availability]}
-                </Badge>
+            <div className="flex items-center gap-4">
+              {/* Avatar */}
+              <div className="h-16 w-16 rounded-full overflow-hidden bg-white/10 border-2 border-primary/30 shrink-0 flex items-center justify-center">
+                {developer.avatarUrl ? (
+                  <img src={developer.avatarUrl} alt={developer.fullName} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-xl font-bold text-primary">
+                    {developer.fullName?.charAt(0)?.toUpperCase() ?? 'D'}
+                  </span>
+                )}
               </div>
-              <CardDescription className="text-base">@{developer.username}</CardDescription>
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <CardTitle className="text-2xl">{developer.fullName}</CardTitle>
+                  <Badge className={availabilityColors[developer.availability]}>
+                    {availabilityLabels[developer.availability]}
+                  </Badge>
+                </div>
+                <CardDescription className="text-base">@{developer.username}</CardDescription>
+              </div>
             </div>
             <Button variant="outline" onClick={() => setIsEditing(true)}>
               <Edit className="mr-2 h-4 w-4" />
