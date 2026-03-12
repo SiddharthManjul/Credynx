@@ -111,6 +111,7 @@ model Developer {
   github        String // Required
 
   bio          String?      @db.Text
+  avatarUrl    String?      @db.Text
   location     String?
   availability Availability @default(AVAILABLE)
 
