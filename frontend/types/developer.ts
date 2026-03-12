@@ -2,6 +2,7 @@ import { DeveloperTier, Availability } from './auth';
 import { Project } from './project';
 
 export interface Developer {
+  user: any;
   id: string;
   userId: string;
   username: string;
