@@ -50,4 +50,9 @@ export class UpdateDeveloperProfileDto {
   @IsEnum(Availability)
   @IsOptional()
   availability?: Availability;
+
+  @IsString()
+  @IsOptional()
+  avatarUrl?: string;
 }
+
