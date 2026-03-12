@@ -2,12 +2,14 @@
 
 import { FuturisticCard } from '@/components/ui/futuristic-card';
 import { GitBranch, FolderGit2, Clock, Trophy, Users } from 'lucide-react';
-import type { ReputationBreakdown as ReputationBreakdownType } from '@/types';
+import type { ReputationScore as ReputationScoreType } from '@/types';
 
 interface ReputationBreakdownProps {
-  breakdown: ReputationBreakdownType;
+  breakdown: ReputationScoreType;
 }
 
+// Each sub-score from the backend is 0-100. The weights below determine what
+// portion of the total 100-point scale each category contributes.
 const categoryConfig = {
   github: {
     label: 'GitHub Profile',
@@ -15,7 +17,7 @@ const categoryConfig = {
     color: 'text-purple-400',
     bgColor: 'bg-gradient-to-r from-purple-500 to-pink-500',
     description: 'Repos, stars, commits, PRs',
-    maxScore: 30,
+    weight: 0.30, // 30% of total
   },
   projects: {
     label: 'Projects',
@@ -23,7 +25,7 @@ const categoryConfig = {
     color: 'text-blue-400',
     bgColor: 'bg-gradient-to-r from-blue-500 to-cyan-500',
     description: 'Completed projects, complexity',
-    maxScore: 25,
+    weight: 0.25, // 25% of total
   },
   time: {
     label: 'Time Investment',
@@ -31,7 +33,7 @@ const categoryConfig = {
     color: 'text-green-400',
     bgColor: 'bg-gradient-to-r from-green-500 to-emerald-500',
     description: 'Consistency, activity',
-    maxScore: 15,
+    weight: 0.15, // 15% of total
   },
   hackathons: {
     label: 'Hackathons & Grants',
@@ -39,7 +41,7 @@ const categoryConfig = {
     color: 'text-yellow-400',
     bgColor: 'bg-gradient-to-r from-yellow-500 to-orange-500',
     description: 'Wins, placements, grants',
-    maxScore: 20,
+    weight: 0.20, // 20% of total
   },
   community: {
     label: 'Community',
@@ -47,7 +49,7 @@ const categoryConfig = {
     color: 'text-orange-400',
     bgColor: 'bg-gradient-to-r from-orange-500 to-red-500',
     description: 'Vouches, sessions',
-    maxScore: 10,
+    weight: 0.10, // 10% of total
   },
 };
 
@@ -59,6 +61,15 @@ export function ReputationBreakdown({ breakdown }: ReputationBreakdownProps) {
     { key: 'hackathons' as const, score: breakdown.hackathonsScore },
     { key: 'community' as const, score: breakdown.communityScore },
   ];
+
+  // The weighted contribution of each sub-score to the total (out of 100)
+  // e.g. a githubScore of 80 with weight 0.30 → contributes 24 pts to total
+  const weightedTotal = categories.reduce((sum, { key, score }) => {
+    return sum + score * categoryConfig[key].weight;
+  }, 0);
+
+  // Use the backend's authoritative totalScore if available, fallback to computed
+  const displayTotal = breakdown.totalScore ?? Math.round(weightedTotal * 10) / 10;
 
   return (
     <FuturisticCard className="border-primary/20" hoverEffect={false}>
@@ -72,7 +83,12 @@ export function ReputationBreakdown({ breakdown }: ReputationBreakdownProps) {
           {categories.map(({ key, score }) => {
             const config = categoryConfig[key];
             const Icon = config.icon;
-            const percentage = (score / config.maxScore) * 100;
+            // maxScore for this category = weight × 100 (i.e. its contribution cap)
+            const maxScore = config.weight * 100;
+            // Weighted contribution of this sub-score
+            const weightedScore = score * config.weight;
+            // Percentage of how much this category has filled its cap (capped at 100%)
+            const percentage = Math.min((score / 100) * 100, 100);
 
             return (
               <div key={key} className="space-y-3">
@@ -90,14 +106,17 @@ export function ReputationBreakdown({ breakdown }: ReputationBreakdownProps) {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-lg text-white">{score.toFixed(1)}</p>
+                    {/* Show weighted contribution / max contribution */}
+                    <p className="font-bold text-lg text-white">
+                      {weightedScore.toFixed(1)}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      / {config.maxScore}
+                      / {maxScore.toFixed(0)} pts
                     </p>
                   </div>
                 </div>
 
-                {/* Progress Bar */}
+                {/* Progress Bar — capped at 100% */}
                 <div className="space-y-1">
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                     <div
@@ -116,10 +135,15 @@ export function ReputationBreakdown({ breakdown }: ReputationBreakdownProps) {
           {/* Total */}
           <div className="pt-6 border-t border-white/10">
             <div className="flex items-center justify-between">
-              <p className="font-semibold text-muted-foreground uppercase tracking-wider text-sm">Total Reputation Score</p>
-              <p className="text-3xl font-bold text-orange-500">
-                {(breakdown.githubScore + breakdown.projectsScore + breakdown.timeScore + breakdown.hackathonsScore + breakdown.communityScore).toFixed(1)}
+              <p className="font-semibold text-muted-foreground uppercase tracking-wider text-sm">
+                Total Reputation Score
               </p>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-orange-500">
+                  {displayTotal.toFixed(1)}
+                </p>
+                <p className="text-xs text-muted-foreground">/ 100 pts</p>
+              </div>
             </div>
           </div>
         </div>
