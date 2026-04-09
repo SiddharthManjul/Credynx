@@ -1,0 +1,511 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  DEVELOPER
+  FOUNDER
+  ADMIN
+}
+
+enum DeveloperTier {
+  TIER_1 // Elite (76-100)
+  TIER_2 // Advanced (51-75)
+  TIER_3 // Intermediate (26-50)
+  TIER_4 // Entry (0-25)
+}
+
+enum Availability {
+  AVAILABLE
+  BUSY
+  NOT_LOOKING
+}
+
+enum JobStatus {
+  OPEN
+  FILLED
+  CLOSED
+}
+
+enum ReferralStatus {
+  PENDING
+  INTERESTED
+  NOT_INTERESTED
+  INTERVIEWING
+  HIRED
+  REJECTED
+}
+
+enum SessionType {
+  FORMAL
+  INFORMAL
+  COMMUNITY_CALL
+}
+
+enum ParticipantStatus {
+  INVITED
+  CONFIRMED
+  DECLINED
+  ATTENDED
+  NO_SHOW
+}
+
+enum AlertType {
+  JOB_MATCH
+  VOUCH
+  MESSAGE
+  HACKATHON
+  SESSION
+  PROFILE_VIEW
+  TIER_UPGRADE
+  WEEKLY_DIGEST
+}
+
+enum HackathonStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+}
+
+enum GrantStatus {
+  OPEN
+  CLOSED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String?
+  role         UserRole
+  isVerified   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+
+  developer               Developer?
+  founder                 Founder?
+  alerts                  Alert[]
+  sessions                SessionParticipant[]
+  notificationPreferences NotificationPreferences?
+
+  @@index([email])
+}
+
+model Developer {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  username      String  @unique
+  fullName      String
+  contactNumber String
+  twitter       String?
+  linkedin      String?
+  github        String // Required
+
+  bio          String?      @db.Text
+  avatarUrl    String?      @db.Text
+  location     String?
+  availability Availability @default(AVAILABLE)
+
+  tier            DeveloperTier @default(TIER_4)
+  reputationScore Float         @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects                Project[]
+  reputationScores        ReputationScore[]
+  reputationHistory       ReputationHistory[]
+  vouchesGiven            Vouch[]                  @relation("VoucherRelation")
+  vouchesReceived         Vouch[]                  @relation("VouchedUserRelation")
+  vouchEligibility        VouchEligibility?
+  referrals               Referral[]
+  hackathonParticipations HackathonParticipation[]
+  grantRecipients         GrantRecipient[]
+  githubIssues            GitHubIssue[]
+  openSourceContributions OpenSourceContribution[]
+
+  @@index([username])
+  @@index([reputationScore])
+  @@index([tier])
+  @@index([availability])
+}
+
+model Founder {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName       String  @default("")
+  companyName    String
+  companyWebsite String?
+  position       String
+  bio            String? @db.Text
+  linkedinUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs         Job[]
+  vouchesGiven Vouch[] @relation("FounderVoucherRelation")
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  name            String
+  description     String   @db.Text
+  livePlatformUrl String
+  repositoryUrl   String
+  teammateNames   String[]
+
+  technologies String[]
+  githubStars  Int      @default(0)
+  githubForks  Int      @default(0)
+
+  isVerified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([developerId])
+  @@index([isVerified])
+}
+
+model ReputationScore {
+  id          String    @id @default(uuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  totalScore      Float
+  tier            DeveloperTier
+  githubScore     Float
+  projectsScore   Float
+  timeScore       Float
+  hackathonsScore Float
+  communityScore  Float
+
+  calculatedAt DateTime @default(now())
+  metadata     Json?
+
+  @@index([developerId])
+  @@index([calculatedAt])
+}
+
+model ReputationHistory {
+  id          String    @id @default(uuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  score Float
+  tier  DeveloperTier
+  date  DateTime      @default(now())
+
+  @@index([developerId, date])
+}
+
+model Vouch {
+  id          String @id @default(uuid())
+  voucherId   String
+  voucherType String @default("DEVELOPER") // "DEVELOPER" or "FOUNDER"
+
+  // Optional relations - only one will be populated based on voucherType
+  developerVoucher   Developer? @relation("VoucherRelation", fields: [developerVoucherId], references: [id], onDelete: Cascade)
+  developerVoucherId String?
+
+  founderVoucher   Founder? @relation("FounderVoucherRelation", fields: [founderVoucherId], references: [id], onDelete: Cascade)
+  founderVoucherId String?
+
+  voucherTier DeveloperTier?
+
+  vouchedUserId   String
+  vouchedUser     Developer     @relation("VouchedUserRelation", fields: [vouchedUserId], references: [id], onDelete: Cascade)
+  vouchedUserTier DeveloperTier
+
+  skillsEndorsed String[]
+  message        String?  @db.Text
+  weight         Float
+  isActive       Boolean  @default(true)
+
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  revokeReason String?   @db.Text
+
+  @@index([voucherId])
+  @@index([developerVoucherId])
+  @@index([founderVoucherId])
+  @@index([vouchedUserId])
+  @@index([isActive])
+}
+
+model VouchEligibility {
+  id          String    @id @default(uuid())
+  developerId String    @unique
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  isEligible         Boolean
+  reasonsNotEligible String[]
+  lastCheckedAt      DateTime @default(now())
+
+  @@index([developerId])
+}
+
+model Job {
+  id        String  @id @default(uuid())
+  founderId String
+  founder   Founder @relation(fields: [founderId], references: [id], onDelete: Cascade)
+
+  title        String
+  description  String @db.Text
+  requirements Json
+  location     String
+  remotePolicy String
+  salaryRange  Json?
+
+  postedAt DateTime  @default(now())
+  closedAt DateTime?
+  status   JobStatus @default(OPEN)
+
+  referrals Referral[]
+
+  @@index([founderId])
+  @@index([status])
+  @@index([postedAt])
+}
+
+model Referral {
+  id    String @id @default(uuid())
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  matchScore Float
+  status     ReferralStatus @default(PENDING)
+  outcome    String?
+
+  referredAt  DateTime  @default(now())
+  respondedAt DateTime?
+  outcomeAt   DateTime?
+
+  @@index([jobId])
+  @@index([developerId])
+  @@index([status])
+}
+
+model Alert {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type     AlertType
+  title    String
+  message  String    @db.Text
+  metadata Json?
+
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model NotificationPreferences {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailNotifications Boolean @default(true)
+  inAppNotifications Boolean @default(true)
+  jobMatches         Boolean @default(true)
+  vouches            Boolean @default(true)
+  messages           Boolean @default(true)
+  hackathons         Boolean @default(true)
+  weeklyDigest       Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id          String      @id @default(uuid())
+  type        SessionType
+  title       String
+  description String?     @db.Text
+  hostId      String
+
+  scheduledAt     DateTime
+  duration        Int
+  meetingLink     String?
+  maxParticipants Int?
+
+  isRecurring       Boolean @default(false)
+  recurrencePattern Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants SessionParticipant[]
+
+  @@index([scheduledAt])
+  @@index([hostId])
+}
+
+model SessionParticipant {
+  id        String  @id @default(uuid())
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status   ParticipantStatus @default(INVITED)
+  joinedAt DateTime?
+  leftAt   DateTime?
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model GitHubIssue {
+  id         String @id @default(uuid())
+  externalId String @unique
+
+  repositoryUrl String
+  title         String
+  description   String   @db.Text
+  labels        String[]
+  ecosystem     String
+  difficulty    String?
+  bountyAmount  Float?
+
+  state        String     @default("OPEN")
+  assignedToId String?
+  assignedTo   Developer? @relation(fields: [assignedToId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+
+  @@index([state])
+  @@index([ecosystem])
+  @@index([assignedToId])
+}
+
+model Hackathon {
+  id         String          @id @default(uuid())
+  name       String
+  ecosystem  String
+  organizer  String
+  prizePool  Float?
+  startDate  DateTime
+  endDate    DateTime
+  websiteUrl String
+  status     HackathonStatus @default(UPCOMING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participations HackathonParticipation[]
+
+  @@index([ecosystem])
+  @@index([status])
+  @@index([startDate])
+}
+
+model HackathonParticipation {
+  id          String    @id @default(uuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  hackathonId String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  projectName   String
+  repositoryUrl String?
+  placement     Int
+  prizeAmount   Float?
+  proofUrl      String
+
+  isVerified      Boolean   @default(false)
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  submittedAt     DateTime  @default(now())
+  rejectionReason String?   @db.Text
+
+  @@index([developerId])
+  @@index([hackathonId])
+  @@index([isVerified])
+}
+
+model Grant {
+  id         String      @id @default(uuid())
+  name       String
+  ecosystem  String
+  provider   String
+  amount     Float?
+  websiteUrl String
+  deadline   DateTime?
+  status     GrantStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipients GrantRecipient[]
+
+  @@index([ecosystem])
+  @@index([status])
+  @@index([deadline])
+}
+
+model GrantRecipient {
+  id          String    @id @default(uuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  grantId String
+  grant   Grant  @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  projectName     String
+  amountReceived  Float
+  announcementUrl String
+
+  isVerified      Boolean   @default(false)
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  receivedAt      DateTime
+  rejectionReason String?   @db.Text
+  createdAt       DateTime  @default(now())
+
+  @@index([developerId])
+  @@index([grantId])
+  @@index([isVerified])
+}
+
+model OpenSourceContribution {
+  id          String    @id @default(uuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  repositoryUrl     String
+  repositoryName    String
+  contributionType  String
+  contributionCount Int
+  impactScore       Float
+
+  lastSyncedAt DateTime @default(now())
+
+  @@index([developerId])
+  @@index([impactScore])
+}
