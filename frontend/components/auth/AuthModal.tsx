@@ -12,9 +12,9 @@ import { Github, Mail, Lock, User, Building2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { signIn } from 'next-auth/react';
 import { UserRole } from '@/types';
 import { useAuth } from '@/lib/hooks';
-import { authApi } from '@/lib/api';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -85,7 +85,7 @@ function OAuthButtons() {
         variant="outline"
         className="w-full backdrop-blur-sm bg-background/50"
         borderColor="rgba(255, 0, 0, 1)"
-        onClick={() => authApi.githubLogin()}
+        onClick={() => signIn('github', { callbackUrl: '/dashboard' })}
       >
         <Github className="mr-2 h-4 w-4" />
         GitHub
@@ -97,7 +97,7 @@ function OAuthButtons() {
         variant="outline"
         className="w-full backdrop-blur-sm bg-background/50"
         borderColor="rgba(66, 133, 244, 0.8)"
-        onClick={() => authApi.googleLogin()}
+        onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
       >
         <GoogleIcon className="mr-2 h-4 w-4" />
         Google
