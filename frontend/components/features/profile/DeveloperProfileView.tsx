@@ -5,9 +5,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Edit, Loader2, Github, ExternalLink, MapPin, Twitter, Linkedin, Plus, Camera, X, Mail } from 'lucide-react';
 import { updateDeveloperProfileSchema, type UpdateDeveloperProfileFormData } from '@/lib/validations';
-import { useUpdateProfile, useMyReputationScore } from '@/lib/hooks';
+import { useUpdateProfile, useMyReputationScore, useAuth } from '@/lib/hooks';
 import { authApi } from '@/lib/api';
-import { useAuthStore } from '@/lib/store/authStore';
 import type { Developer, Project } from '@/types';
 import { Availability } from '@/types';
 import { ProjectCard } from './ProjectCard';
@@ -44,9 +43,8 @@ export function DeveloperProfileView({ developer }: DeveloperProfileViewProps) {
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Email update state — seed from auth store (the email lives on User, not Developer)
-  const storeUser = useAuthStore((s) => s.user);
-  const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser);
+  // Email update state — seed from auth session (the email lives on User, not Developer)
+  const { user: storeUser, fetchCurrentUser } = useAuth();
   const [email, setEmail] = useState(storeUser?.email ?? '');
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailError, setEmailError] = useState('');
