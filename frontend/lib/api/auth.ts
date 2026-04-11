@@ -1,51 +1,25 @@
 import apiClient from './client';
-import type {
-  AuthResponse,
-  LoginCredentials,
-  RegisterCredentials,
-  User
-} from '@/types';
+import type { RegisterCredentials } from '@/types';
 
+/**
+ * Thin client for the Next.js `/api/auth/*` endpoints.
+ *
+ * Auth.js v5 (next-auth) owns sign-in, sign-out, and the session — callers
+ * should use `signIn()` / `signOut()` / `useSession()` from `next-auth/react`
+ * directly. What's left here are the few things that aren't part of the
+ * NextAuth surface:
+ *
+ * - `register`: custom POST /auth/register that creates the User record.
+ *   After this resolves, the caller should `signIn('credentials', ...)` to
+ *   establish a session.
+ * - `updateEmail`: PATCH /auth/email for authenticated users.
+ */
 export const authApi = {
-  // Register new user
-  register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
-    const { data } = await apiClient.post<AuthResponse>('/auth/register', credentials);
+  register: async (credentials: RegisterCredentials): Promise<{ ok: true }> => {
+    const { data } = await apiClient.post<{ ok: true }>('/auth/register', credentials);
     return data;
   },
 
-  // Login user
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const { data } = await apiClient.post<AuthResponse>('/auth/login', credentials);
-    return data;
-  },
-
-  // Get current user
-  getCurrentUser: async (): Promise<User> => {
-    const { data } = await apiClient.get<User>('/auth/me');
-    return data;
-  },
-
-  // Refresh token
-  refreshToken: async (refreshToken: string): Promise<AuthResponse> => {
-    const { data } = await apiClient.post<AuthResponse>('/auth/refresh', {
-      refreshToken,
-    });
-    return data;
-  },
-
-  // GitHub OAuth — redirects to backend which initiates the GitHub OAuth flow
-  githubLogin: (): void => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    window.location.href = `${apiUrl}/auth/github`;
-  },
-
-  // Google OAuth — redirects to backend which initiates the Google OAuth flow
-  googleLogin: (): void => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    window.location.href = `${apiUrl}/auth/google`;
-  },
-
-  // Update authenticated user's email
   updateEmail: async (email: string): Promise<{ email: string }> => {
     const { data } = await apiClient.patch<{ email: string }>('/auth/email', { email });
     return data;
@@ -53,4 +27,3 @@ export const authApi = {
 };
 
 export default authApi;
-
