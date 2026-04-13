@@ -38,7 +38,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { updateDeveloperProfileSchema, updateFounderProfileSchema, type UpdateDeveloperProfileFormData, type UpdateFounderProfileFormData } from '@/lib/validations';
 import { useUpdateProfile } from '@/lib/hooks/useProfile';
 import { authApi } from '@/lib/api';
-import { useAuthStore } from '@/lib/store/authStore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -144,9 +143,8 @@ function DeveloperUnifiedDashboard({ developer, reputationScore, reputationLoadi
   const [avatarError, setAvatarError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Email state — email lives on User, not Developer; read from auth store
-  const storeUser = useAuthStore((s) => s.user);
-  const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser);
+  // Email state — email lives on User, not Developer; read from auth session
+  const { user: storeUser, fetchCurrentUser } = useAuth();
   const [email, setEmail] = useState(storeUser?.email ?? '');
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailError, setEmailError] = useState('');
