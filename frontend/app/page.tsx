@@ -12,7 +12,7 @@ import { BentoGrid } from "@/components/landing/BentoGrid";
 import { ScrollSections } from "@/components/landing/ScrollSections";
 import { Navbar } from "@/components/layout/Navbar";
 import { AuthModal } from "@/components/auth/AuthModal";
-import { authApi } from "@/lib/api";
+import { signIn } from "next-auth/react";
 
 export default function HomePage() {
   const router = useRouter();
@@ -74,7 +74,7 @@ export default function HomePage() {
               size="lg"
               className="backdrop-blur-sm bg-background/50"
               borderColor="rgba(255, 0, 0, 1)"
-              onClick={() => authApi.githubLogin()}
+              onClick={() => signIn('github', { callbackUrl: '/dashboard' })}
             >
               <Github className="mr-2 h-5 w-5" />
               GitHub
@@ -84,7 +84,7 @@ export default function HomePage() {
               size="lg"
               className="backdrop-blur-sm bg-background/50"
               borderColor="rgba(66, 133, 244, 0.8)"
-              onClick={() => authApi.googleLogin()}
+              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
             >
               <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
